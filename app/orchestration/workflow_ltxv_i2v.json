@@ -1,0 +1,163 @@
+{
+  "1": {
+    "inputs": {
+      "ckpt_name": "ltxv-2b-0.9.6-distilled-04-25.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load LTXV Checkpoint"
+    }
+  },
+  "2": {
+    "inputs": {
+      "clip_name": "t5xxl_fp8_e4m3fn.safetensors",
+      "type": "ltxv",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "Load T5-XXL CLIP"
+    }
+  },
+  "3": {
+    "inputs": {
+      "text": "positive_prompt",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Positive Prompt"
+    }
+  },
+  "4": {
+    "inputs": {
+      "text": "negative_prompt",
+      "clip": [
+        "2",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "5": {
+    "inputs": {
+      "frame_rate": 8.0,
+      "positive": [
+        "3",
+        0
+      ],
+      "negative": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "LTXVConditioning",
+    "_meta": {
+      "title": "LTXV Conditioning"
+    }
+  },
+  "6": {
+    "inputs": {
+      "image": "character_portrait.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Load Source Image"
+    }
+  },
+  "7": {
+    "inputs": {
+      "width": 512,
+      "height": 288,
+      "length": 25,
+      "strength": 1.0,
+      "image": [
+        "6",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ],
+      "positive": [
+        "5",
+        0
+      ],
+      "negative": [
+        "5",
+        1
+      ],
+      "batch_size": 1
+    },
+    "class_type": "LTXVImgToVideo",
+    "_meta": {
+      "title": "LTXV Image To Video Conditioning"
+    }
+  },
+  "8": {
+    "inputs": {
+      "seed": 42,
+      "steps": 8,
+      "cfg": 3.0,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "7",
+        0
+      ],
+      "negative": [
+        "7",
+        1
+      ],
+      "latent_image": [
+        "7",
+        2
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "9": {
+    "inputs": {
+      "samples": [
+        "8",
+        0
+      ],
+      "vae": [
+        "1",
+        2
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE Decode Video Latents"
+    }
+  },
+  "10": {
+    "inputs": {
+      "filename_prefix": "LocalI2V",
+      "images": [
+        "9",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Frames"
+    }
+  }
+}
