@@ -20,12 +20,17 @@ $python = Join-Path $PWD ".venv\Scripts\python.exe"
 & $python -m pip install --upgrade pip setuptools wheel
 
 # GTX 1070 = Pascal/sm_61. CUDA 13.x builds do not support Pascal.
-& $python -m pip install torch==2.13.0 torchvision==0.28.0 torchaudio --extra-index-url https://download.pytorch.org/whl/cu126
+& $python -m pip install torch==2.13.0 torchvision==0.28.0 torchaudio==2.11.0 --index-url https://download.pytorch.org/whl/cu126
 & $python -m pip install -r requirements\app.txt
 
 if (-not (Test-Path comfyui\main.py)) {
   if (Test-Path comfyui) { Remove-Item -Recurse -Force comfyui }
   git clone --depth 1 --branch v0.33.1 https://github.com/Comfy-Org/ComfyUI.git comfyui
+}
+
+$comfyTag = (& git -C comfyui describe --tags --exact-match 2>$null)
+if ($comfyTag -ne "v0.33.1") {
+  throw "comfyui repository is not pinned to v0.33.1 (found: '$comfyTag')."
 }
 
 New-Item -ItemType Directory -Force .cache | Out-Null

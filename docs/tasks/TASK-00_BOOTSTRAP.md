@@ -38,7 +38,7 @@ Create a reproducible Pascal-compatible local environment and prove the shell/to
 - **TorchVision**: 0.28.0+cu126
 - **TorchAudio**: 2.11.0+cu126
 - **Supported Architectures**: `sm_50`, `sm_60`, `sm_61`, `sm_70`, `sm_75`, `sm_80`, `sm_86`, `sm_90`
-- **System Memory**: 15.84 GB physical RAM, 32.84 GB virtual memory (17.00 GB pagefile, exceeding >=24GB target)
+- **System Memory**: 15.84 GB physical RAM, 17.00 GB pagefile (Total virtual memory: 32.84 GB, satisfying the system-managed / >=24GB virtual memory requirement)
 - **Disk Headroom**: C: 533.94 GB free, D: 416.76 GB free
 
 ### Verification Summary
