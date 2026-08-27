@@ -1,5 +1,7 @@
 .venv/
+venv/
 __pycache__/
+*.pyc
 *.py[cod]
 .pytest_cache/
 .cache/
@@ -13,6 +15,8 @@ models/*
 !models/.gitkeep
 comfyui/*
 !comfyui/.gitkeep
+ComfyUI/models/
+comfyui/models/
 *.mp4
 *.webm
 *.safetensors
