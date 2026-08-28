@@ -94,11 +94,15 @@ def postprocess_video(
             current_fps = effective_source_fps
 
             # 2. Upscale Frames
+            up_engine = "none"
+            up_fallback = False
+            up_psnr = 0.0
+
             if enable_upscale:
                 if progress_callback:
                     progress_callback(0.30, f"Upscaling frames ({upscale_scale}x)...")
                 t0 = time.perf_counter()
-                _, up_time = upscale_frames(
+                _, up_time, up_engine, up_fallback, up_psnr = upscale_frames(
                     input_dir=current_frames_dir,
                     output_dir=upscaled_dir,
                     scale=upscale_scale,
@@ -157,6 +161,9 @@ def postprocess_video(
                 "duration_seconds": final_probe["duration_sec"],
                 "upscale_enabled": enable_upscale,
                 "upscale_scale": upscale_scale,
+                "upscale_engine": up_engine,
+                "upscale_fallback_used": up_fallback,
+                "upscale_sanity_psnr": up_psnr,
                 "interpolate_enabled": enable_interpolate,
                 "target_fps": target_fps,
                 "timings": timings,
