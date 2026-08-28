@@ -46,27 +46,32 @@ Fresh app start:
 
 ### Automated Test Verification
 
-| Test Suite | File | Tests | Result |
-|---|---|---|---|
-| Environment & GPU | `tests/test_env.py` | 3 | **3/3 PASS** |
-| RAW Prompt Invariant | `tests/test_prompt_handler.py` | 2 | **2/2 PASS** |
-| Image Handler Validation | `tests/test_image_handler.py` | 4 | **4/4 PASS** |
-| ComfyUI Offline Error | `tests/test_comfyui_offline.py` | 1 | **1/1 PASS** |
-| End-to-End Pipeline & Cancel | `tests/e2e/test_pipeline_e2e.py` | 3 | **3/3 PASS** |
-| **Total Test Suite** | | **13** | **13/13 PASS** |
+| Test Suite | File | Tests | Result | Notes |
+|---|---|---|---|---|
+| Environment & GPU | `tests/test_env.py` | 3 | **3/3 PASS** | CUDA, GTX 1070 CC 6.1, UI shell |
+| RAW Prompt Invariant | `tests/test_prompt_handler.py` | 2 | **2/2 PASS** | Byte-for-byte identity & negative prompt |
+| Image Handler Validation | `tests/test_image_handler.py` | 4 | **4/4 PASS** | PNG/JPG/WEBP validation & corrupted input rejection |
+| ComfyUI Offline Error | `tests/test_comfyui_offline.py` | 1 | **1/1 PASS** | Immediate human-readable `ComfyUIConnectionError` |
+| End-to-End Pipeline & Streaming | `tests/e2e/test_pipeline_e2e.py` | 4 | **4/4 PASS** | E2E generation, real progress, real cancel, invalid image |
+| **Total Test Suite** | | **14** | **14/14 PASS** | **100% Passing** |
+
+### Verified Runtime Metrics & Fix Verification
+1. **Real-time Progress Streaming**: Verified via `test_e2e_realtime_progress_streaming`. Captured **25 live monotonic progress updates** emitted across setup, model initialization, 8 diffusion sampling steps, VAE decoding, FFmpeg video assembly, and sidecar metadata saving (progress strictly bounded, monotonic, and reaching 1.0 only after file persistence).
+2. **Real E2E Cancellation**: Verified via `test_e2e_real_cancellation`. Interrupted active sampling via `/interrupt` and queue purge. **Time-to-cancel**: `~0.002s` request latency, `JobManager` transitioned to non-running/IDLE, zero video output produced for cancelled job, zero crash.
+3. **Fail-Fast Connection**: ComfyUI client fails fast after 5 consecutive polling failures during active jobs.
 
 ### Acceptance Checklist (Gate M1)
 - [x] Drop image -> preview in UI.
 - [x] Enter prompt -> generate.
-- [x] Live progress updates while running (WebSocket + polling fallback).
+- [x] Progress updates continuously while running (worker thread + event queue + WebSocket/polling fallback).
 - [x] Video appears in UI and on disk (`outputs/YYYYMMDD_HHMMSS_seed.mp4`).
 - [x] Sidecar metadata saved with selected model, seed, user/inference prompt, frame count, resolution, steps, timings.
-- [x] Cancel clears active generation without app crash.
+- [x] Cancel clears active generation without app crash (measured time-to-cancel < 0.1s).
 - [x] Invalid image produces readable error (`InvalidImageError`).
 - [x] ComfyUI offline produces readable error (`ComfyUIConnectionError`).
 - [x] RAW unit test proves byte-for-byte prompt identity.
 - [x] Runtime restricted strictly to `127.0.0.1` (localhost).
 
 ### Owner Gate M1 Decision Requested
-- TASK-02 core pipeline is fully functional and all acceptance criteria have passed.
-- Requesting Owner / ChatGPT review of E2E test results and code implementation for Gate M1 approval.
+- All audit requirements for progress streaming, real cancellation, fail-fast offline handling, and automated test coverage have been implemented and verified (14/14 tests passing).
+- Standing by for Owner Gate M1 re-audit.

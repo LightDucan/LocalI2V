@@ -23,7 +23,7 @@ from app.orchestration.prompt_handler import get_effective_negative_prompt, proc
 
 logger = logging.getLogger("locali2v.pipeline")
 
-# Baseline timeout: max(15 minutes, 3 * baseline_25_frame_runtime = 3 * 64s = 192s) = 900 seconds
+# Default timeout: max(15 minutes, 3 * baseline_25_frame_runtime = 3 * 64s = 192s) = 900 seconds
 DEFAULT_TIMEOUT_SECONDS = 900.0
 
 
@@ -85,20 +85,27 @@ class I2VPipeline:
     ) -> GenerationResult:
         """
         Executes the full local Image-to-Video generation pipeline.
+        Strictly monotonic progress updates.
         """
         start_time = time.perf_counter()
         if seed is None or seed < 0:
             seed = random.randint(0, 2**31 - 1)
 
-        try:
+        highest_progress = [0.0]
+
+        def emit_progress(pct: float, text: str):
             if progress_callback:
-                progress_callback(0.02, "Checking ComfyUI connection...")
+                p = max(highest_progress[0], round(pct, 3))
+                highest_progress[0] = p
+                progress_callback(p, text)
+
+        try:
+            emit_progress(0.02, "Checking ComfyUI connection...")
 
             # 1. Health check
             self.client.check_health()
 
-            if progress_callback:
-                progress_callback(0.05, "Validating source image...")
+            emit_progress(0.05, "Validating source image...")
 
             # 2. Image validation and staging
             image_filename, orig_w, orig_h = validate_and_prepare_image(
@@ -110,8 +117,7 @@ class I2VPipeline:
             inference_prompt = process_prompt(prompt, mode=mode)
             eff_negative = get_effective_negative_prompt(negative_prompt)
 
-            if progress_callback:
-                progress_callback(0.08, "Configuring workflow...")
+            emit_progress(0.08, "Configuring workflow...")
 
             # 4. Construct API workflow payload
             wf = self.load_workflow_template()
@@ -132,21 +138,22 @@ class I2VPipeline:
             wf["8"]["inputs"]["cfg"] = cfg
             wf["10"]["inputs"]["filename_prefix"] = prefix
 
+            emit_progress(0.10, "Submitting prompt to ComfyUI...")
+
             client_id = str(uuid.uuid4())
             prompt_id = self.client.queue_prompt(workflow=wf, client_id=client_id)
             logger.info("Queued prompt %s (seed=%d, frames=%d)", prompt_id, seed, length)
 
-            # 5. Wait for execution
+            # 5. Wait for execution (progress 0.10 -> 0.90)
             frame_files = self.client.wait_for_completion(
                 prompt_id=prompt_id,
                 client_id=client_id,
                 timeout_sec=timeout_sec,
-                progress_callback=progress_callback,
+                progress_callback=emit_progress,
                 cancel_check=cancel_check,
             )
 
-            if progress_callback:
-                progress_callback(0.9, "Assembling MP4 video...")
+            emit_progress(0.92, "Assembling MP4 video with FFmpeg...")
 
             # 6. Assemble MP4 and write metadata
             video_path = assemble_video(
@@ -156,6 +163,8 @@ class I2VPipeline:
                 seed=seed,
                 fps=fps,
             )
+
+            emit_progress(0.98, "Writing metadata sidecar...")
 
             gen_duration = round(time.perf_counter() - start_time, 2)
             meta = {
@@ -183,8 +192,8 @@ class I2VPipeline:
             }
             json_path = save_metadata(video_path=video_path, metadata=meta)
 
-            if progress_callback:
-                progress_callback(1.0, "Complete!")
+            # Emit 1.0 ONLY after output video and metadata are completely saved
+            emit_progress(1.0, f"Generation complete in {gen_duration}s")
 
             return GenerationResult(
                 success=True,
