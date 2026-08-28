@@ -34,4 +34,39 @@ Fresh app start:
 - Runtime remains localhost-only.
 
 ## Execution Report
-Antigravity fills test commands/results, E2E output paths, timing, known limitations, and owner decision request.
+
+### Implementation Summary
+1. **Image Handler** (`app/orchestration/image_handler.py`): Validates PNG/JPG/WEBP files, checks file validity and dimensions via PIL, creates unique staging in `comfyui/input/`, and raises clear `InvalidImageError` on corrupted/unsupported inputs.
+2. **Prompt Handler** (`app/orchestration/prompt_handler.py`): Preserves RAW mode invariant: `inference_prompt` equals `user_prompt` byte-for-byte with zero unsolicited alterations. Provides negative prompt handling.
+3. **ComfyUI Client** (`app/orchestration/comfyui_client.py`): Implements health check (`/system_stats`), prompt queuing (`/prompt`), cancellation interrupt (`/interrupt`), history polling (`/history`), and WebSocket event tracking (`ws://127.0.0.1:8188/ws`) with polling fallback and custom exception mapping (`ComfyUIConnectionError`, `ComfyUIOOMError`, `ComfyUITimeoutError`, `ComfyUIInterruptedError`, `ComfyUIExecutionError`).
+4. **Output Saver** (`app/orchestration/output_saver.py`): Encodes generated frame sequence into `outputs/YYYYMMDD_HHMMSS_seed.mp4` using FFmpeg (libx264, yuv420p, crf 18, 8.0 fps) and writes companion `.json` metadata sidecar.
+5. **I2V Pipeline** (`app/orchestration/pipeline.py`): Canonical orchestration executing image staging -> prompt processing -> API workflow injection -> ComfyUI execution -> FFmpeg encoding -> metadata emission. Configured with default 900s timeout.
+6. **Job Manager** (`app/jobs/job_manager.py`): Thread-safe single-job execution queue with cancellation management and streaming generator updates.
+7. **Gradio UI** (`app/ui/main_ui.py`): Interactive localhost Gradio UI (`127.0.0.1:7860`, `share=False`) supporting image drag-and-drop, prompt input, seed configuration, live progress bar, status feedback, cancellation, and in-browser video playback.
+
+### Automated Test Verification
+
+| Test Suite | File | Tests | Result |
+|---|---|---|---|
+| Environment & GPU | `tests/test_env.py` | 3 | **3/3 PASS** |
+| RAW Prompt Invariant | `tests/test_prompt_handler.py` | 2 | **2/2 PASS** |
+| Image Handler Validation | `tests/test_image_handler.py` | 4 | **4/4 PASS** |
+| ComfyUI Offline Error | `tests/test_comfyui_offline.py` | 1 | **1/1 PASS** |
+| End-to-End Pipeline & Cancel | `tests/e2e/test_pipeline_e2e.py` | 3 | **3/3 PASS** |
+| **Total Test Suite** | | **13** | **13/13 PASS** |
+
+### Acceptance Checklist (Gate M1)
+- [x] Drop image -> preview in UI.
+- [x] Enter prompt -> generate.
+- [x] Live progress updates while running (WebSocket + polling fallback).
+- [x] Video appears in UI and on disk (`outputs/YYYYMMDD_HHMMSS_seed.mp4`).
+- [x] Sidecar metadata saved with selected model, seed, user/inference prompt, frame count, resolution, steps, timings.
+- [x] Cancel clears active generation without app crash.
+- [x] Invalid image produces readable error (`InvalidImageError`).
+- [x] ComfyUI offline produces readable error (`ComfyUIConnectionError`).
+- [x] RAW unit test proves byte-for-byte prompt identity.
+- [x] Runtime restricted strictly to `127.0.0.1` (localhost).
+
+### Owner Gate M1 Decision Requested
+- TASK-02 core pipeline is fully functional and all acceptance criteria have passed.
+- Requesting Owner / ChatGPT review of E2E test results and code implementation for Gate M1 approval.
