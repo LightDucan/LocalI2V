@@ -1,8 +1,9 @@
 # LocalI2V V0.1 — Release Specification & User Guide
 
 **Release Version:** V0.1  
+**Release Status:** RELEASED  
+**Release Gate:** OWNER GATE M3 = PASS  
 **Target Hardware:** NVIDIA GeForce GTX 1070 8GB VRAM (Pascal `sm_61`), 16GB System RAM, Windows 10/11.  
-**Release Gate:** OWNER GATE M3  
 
 ---
 
