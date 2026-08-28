@@ -41,7 +41,7 @@ Using one M1 output:
 
 ### Root Cause Analysis & Fix
 1. **Root Cause of Spatial Tile Misplacement**:
-   - The initial run forced `-s 2` against the 4x model `realesrgan-x4plus`. The NCNN shader internal sub-sampling routine caused tile coordinate displacement on non-4x scaling, resulting in gross visual corruption (measured **10.50 dB** PSNR).
+   - Spatial corruption was reproducibly isolated to the `realesrgan-x4plus` model when used with requested `scale=2` on this NCNN/Vulkan stack. Native `realesr-animevideov3-x2` at `scale=2` produced clean output.
 2. **Fix Implemented**:
    - Switched to the native 2x video model `realesr-animevideov3-x2` for 2x upscaling, producing clean composition, zero tile artifacts, and **32.97 dB** PSNR.
    - Built automated `calculate_psnr` sanity check guard on frame 1: if $\text{PSNR} < 18\text{ dB}$, output is automatically rejected and reverted to FFmpeg Lanczos 2x.
@@ -88,4 +88,4 @@ Using one M1 output:
 - [x] Raw source video is preserved intact on disk.
 - [x] Zero Out-of-Memory (OOM) errors encountered on GTX 1070 8GB.
 - [x] Total post-processing completed in **5.33 seconds**.
-- [x] Standing by for Owner / ChatGPT Gate M2 audit.
+- [x] **OWNER GATE M2: PASS** (Audited and approved by Owner / ChatGPT). Proceeding to TASK-05.
