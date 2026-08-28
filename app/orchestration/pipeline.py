@@ -20,10 +20,10 @@ from app.orchestration.comfyui_client import (
 from app.orchestration.image_handler import InvalidImageError, validate_and_prepare_image
 from app.orchestration.output_saver import assemble_video, save_metadata
 from app.orchestration.prompt_handler import get_effective_negative_prompt, process_prompt
+from app.presets.model_adapters.ltxv_adapter import LTXVModelAdapter
 
 logger = logging.getLogger("locali2v.pipeline")
 
-# Default timeout: max(15 minutes, 3 * baseline_25_frame_runtime = 3 * 64s = 192s) = 900 seconds
 DEFAULT_TIMEOUT_SECONDS = 900.0
 
 
@@ -76,16 +76,19 @@ class I2VPipeline:
         height: int = 288,
         length: int = 25,
         fps: float = 8.0,
-        steps: int = 8,
-        cfg: float = 3.0,
+        steps: int | None = None,
+        cfg: float | None = None,
         mode: str = "raw",
+        preserve: str = "normal",
+        motion: str = "normal",
+        camera_preset: str = "static",
+        subject_mode: str = "single",
         timeout_sec: float = DEFAULT_TIMEOUT_SECONDS,
         progress_callback: Callable[[float, str], None] | None = None,
         cancel_check: Callable[[], bool] | None = None,
     ) -> GenerationResult:
         """
-        Executes the full local Image-to-Video generation pipeline.
-        Strictly monotonic progress updates.
+        Executes the full local Image-to-Video generation pipeline with semantic controls.
         """
         start_time = time.perf_counter()
         if seed is None or seed < 0:
@@ -113,36 +116,45 @@ class I2VPipeline:
                 comfy_input_dir=self.comfy_input_dir,
             )
 
-            # 3. Prompt handling (RAW mode invariant preserved)
-            inference_prompt = process_prompt(prompt, mode=mode)
+            # 3. Prompt handling (RAW mode invariant strictly preserved)
+            inference_prompt = process_prompt(
+                user_prompt=prompt,
+                mode=mode,
+                camera_preset=camera_preset,
+                subject_mode=subject_mode,
+            )
             eff_negative = get_effective_negative_prompt(negative_prompt)
 
-            emit_progress(0.08, "Configuring workflow...")
+            emit_progress(0.08, "Configuring workflow and applying semantic adapter...")
 
-            # 4. Construct API workflow payload
-            wf = self.load_workflow_template()
+            # 4. Construct API workflow payload via LTXVModelAdapter
+            raw_wf = self.load_workflow_template()
             prefix = f"locali2v_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{seed}"
 
+            # Apply semantic controls via model adapter (modulates steps, cfg, strength, frame_rate)
+            wf = LTXVModelAdapter.apply_controls(
+                workflow=raw_wf,
+                preserve=preserve,
+                motion=motion,
+                custom_seed=seed,
+                custom_steps=steps,
+                custom_cfg=cfg,
+            )
+
+            # Inject inputs
             wf["3"]["inputs"]["text"] = inference_prompt
             wf["4"]["inputs"]["text"] = eff_negative
-            wf["5"]["inputs"]["frame_rate"] = fps
             wf["6"]["inputs"]["image"] = image_filename
             wf["7"]["inputs"]["width"] = width
             wf["7"]["inputs"]["height"] = height
             wf["7"]["inputs"]["length"] = length
-            wf["7"]["inputs"]["batch_size"] = 1
-            if "batch_type" in wf["7"]["inputs"]:
-                del wf["7"]["inputs"]["batch_type"]
-            wf["8"]["inputs"]["seed"] = seed
-            wf["8"]["inputs"]["steps"] = steps
-            wf["8"]["inputs"]["cfg"] = cfg
             wf["10"]["inputs"]["filename_prefix"] = prefix
 
             emit_progress(0.10, "Submitting prompt to ComfyUI...")
 
             client_id = str(uuid.uuid4())
             prompt_id = self.client.queue_prompt(workflow=wf, client_id=client_id)
-            logger.info("Queued prompt %s (seed=%d, frames=%d)", prompt_id, seed, length)
+            logger.info("Queued prompt %s (seed=%d, frames=%d, mode=%s, preserve=%s, motion=%s)", prompt_id, seed, length, mode, preserve, motion)
 
             # 5. Wait for execution (progress 0.10 -> 0.90)
             frame_files = self.client.wait_for_completion(
@@ -176,6 +188,10 @@ class I2VPipeline:
                 "inference_prompt": inference_prompt,
                 "negative_prompt": eff_negative,
                 "mode": mode,
+                "preserve": preserve,
+                "motion": motion,
+                "camera_preset": camera_preset,
+                "subject_mode": subject_mode,
                 "seed": seed,
                 "width": width,
                 "height": height,
@@ -183,8 +199,8 @@ class I2VPipeline:
                 "frame_count": length,
                 "fps": fps,
                 "duration_seconds": round(length / fps, 2),
-                "steps": steps,
-                "cfg": cfg,
+                "steps": wf["8"]["inputs"].get("steps", 8),
+                "cfg": wf["8"]["inputs"].get("cfg", 3.0),
                 "output_video": video_path.name,
                 "generation_time_seconds": gen_duration,
                 "created_at": datetime.datetime.now().isoformat(),
@@ -192,7 +208,6 @@ class I2VPipeline:
             }
             json_path = save_metadata(video_path=video_path, metadata=meta)
 
-            # Emit 1.0 ONLY after output video and metadata are completely saved
             emit_progress(1.0, f"Generation complete in {gen_duration}s")
 
             return GenerationResult(

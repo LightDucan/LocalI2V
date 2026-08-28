@@ -18,7 +18,17 @@ logger = configure_logging()
 job_manager = JobManager()
 
 
-def on_generate(image, prompt, seed, progress=gr.Progress(track_tqdm=False)):
+def on_generate(
+    image,
+    prompt,
+    seed,
+    mode,
+    preserve,
+    motion,
+    camera_preset,
+    subject_mode,
+    progress=gr.Progress(track_tqdm=False),
+):
     if not image:
         gr.Warning("Please upload a source image first.")
         yield None, "Error: No source image provided.", gr.update(interactive=True), gr.update(interactive=False)
@@ -38,7 +48,11 @@ def on_generate(image, prompt, seed, progress=gr.Progress(track_tqdm=False)):
         image_path=image,
         prompt=prompt,
         seed=int(seed) if seed is not None else -1,
-        mode="raw",
+        mode=mode.lower(),
+        preserve=preserve.lower(),
+        motion=motion.lower(),
+        camera_preset=camera_preset.lower(),
+        subject_mode=subject_mode.lower(),
     ):
         progress(pct, desc=status_text)
         if vid_path:
@@ -76,10 +90,46 @@ def build_ui() -> gr.Blocks:
                 prompt_input = gr.Textbox(
                     label="Motion Prompt",
                     placeholder="Describe character motion (e.g., Character breathes slowly. Camera static.)",
-                    lines=4,
+                    lines=3,
                 )
+
                 with gr.Row():
+                    mode_input = gr.Radio(
+                        label="Prompt Mode",
+                        choices=["Raw", "Simple", "Cinematic"],
+                        value="Raw",
+                        info="Raw sends exact prompt without suffixes. Simple/Cinematic add camera and styling.",
+                    )
                     seed_input = gr.Number(label="Seed (-1 for random)", value=-1, precision=0)
+
+                with gr.Accordion("Semantic Controls", open=True):
+                    with gr.Row():
+                        preserve_input = gr.Dropdown(
+                            label="Preserve Fidelity",
+                            choices=["low", "normal", "high", "maximum"],
+                            value="normal",
+                            info="Tradeoff between motion freedom and source image fidelity.",
+                        )
+                        motion_input = gr.Dropdown(
+                            label="Motion Dynamics",
+                            choices=["subtle", "normal", "strong"],
+                            value="normal",
+                            info="Motion displacement speed and scale.",
+                        )
+
+                    with gr.Row():
+                        camera_input = gr.Dropdown(
+                            label="Camera Preset",
+                            choices=["static", "pan_left", "pan_right", "zoom_in"],
+                            value="static",
+                            info="Active in Simple/Cinematic modes only. Ignored in Raw mode.",
+                        )
+                        subject_input = gr.Dropdown(
+                            label="Subject Control (Experimental)",
+                            choices=["single", "two_subject"],
+                            value="single",
+                            info="Active in Simple/Cinematic modes only. Ignored in Raw mode.",
+                        )
 
                 with gr.Row():
                     generate_btn = gr.Button("Generate Video", variant="primary", interactive=True)
@@ -91,7 +141,16 @@ def build_ui() -> gr.Blocks:
 
         generate_event = generate_btn.click(
             fn=on_generate,
-            inputs=[image_input, prompt_input, seed_input],
+            inputs=[
+                image_input,
+                prompt_input,
+                seed_input,
+                mode_input,
+                preserve_input,
+                motion_input,
+                camera_input,
+                subject_input,
+            ],
             outputs=[video_output, status_box, generate_btn, cancel_btn],
         )
 

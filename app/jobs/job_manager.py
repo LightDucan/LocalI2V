@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import queue
@@ -51,9 +51,13 @@ class JobManager:
         height: int = 288,
         length: int = 25,
         fps: float = 8.0,
-        steps: int = 8,
-        cfg: float = 3.0,
+        steps: int | None = None,
+        cfg: float | None = None,
         mode: str = "raw",
+        preserve: str = "normal",
+        motion: str = "normal",
+        camera_preset: str = "static",
+        subject_mode: str = "single",
     ) -> Generator[tuple[float, str, str | None, str | None], None, None]:
         """
         Executes a generation job on a background worker thread while yielding
@@ -100,6 +104,10 @@ class JobManager:
                     steps=steps,
                     cfg=cfg,
                     mode=mode,
+                    preserve=preserve,
+                    motion=motion,
+                    camera_preset=camera_preset,
+                    subject_mode=subject_mode,
                     progress_callback=on_progress,
                     cancel_check=check_cancel,
                 )
