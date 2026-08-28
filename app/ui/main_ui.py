@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import subprocess
@@ -115,26 +115,6 @@ def on_cancel():
     if success:
         return "Cancellation requested..."
     return "No active job to cancel."
-
-
-def on_manual_enhance(current_video, progress=gr.Progress(track_tqdm=False)):
-    if not current_video:
-        gr.Warning("No video available to enhance.")
-        return None, "Error: No video to enhance."
-
-    progress(0.1, desc="Starting manual 2x upscale + 24fps enhancement...")
-    res = postprocess_video(
-        raw_video_path=current_video,
-        source_fps=8.0,
-        enable_upscale=True,
-        upscale_scale=2,
-        enable_interpolate=True,
-        target_fps=24.0,
-        progress_callback=lambda p, t: progress(p, desc=t),
-    )
-    if res.success:
-        return res.enhanced_video_path, f"Enhancement complete in {res.timings.get('total_postprocess_time_sec', 0)}s"
-    return None, f"Enhancement failed: {res.error_message}"
 
 
 def open_folder(folder_path: str = "outputs"):
@@ -291,7 +271,6 @@ def build_ui() -> gr.Blocks:
                 video_output = gr.Video(label="Video Output", interactive=False, autoplay=True)
 
                 with gr.Row():
-                    enhance_btn = gr.Button("Enhance Current Video", variant="secondary")
                     open_dir_btn = gr.Button("Open Outputs Folder", variant="secondary")
 
         # Bottom: SQLite Job History
@@ -343,12 +322,6 @@ def build_ui() -> gr.Blocks:
             inputs=[],
             outputs=[status_box],
             cancels=[gen_event],
-        )
-
-        enhance_btn.click(
-            fn=on_manual_enhance,
-            inputs=[video_output],
-            outputs=[video_output, status_box],
         )
 
         open_dir_btn.click(

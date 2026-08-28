@@ -33,22 +33,23 @@ V0.1 is released only after owner sign-off.
 
 | Item | Status | Result / Metric | Notes |
 |---|---|---|---|
-| **One-Click Startup** | **PASS** | `scripts/start_locali2v.ps1` | Automatic env check, ComfyUI launch, and Gradio startup |
-| **RAW Generation** | **PASS** | `outputs/20260828_163530_42.mp4` | 512x288 @ 8fps, 25 frames, 8 steps, duration 3.12s |
+| **One-Click Startup** | **PASS** | `scripts/start_locali2v.ps1` | Automatic env check, ComfyUI launch, and Gradio startup on 127.0.0.1 |
+| **RAW Generation** | **PASS** | `outputs/20260828_165127_1253183240.mp4` | 512x288 @ 8fps, 25 frames, 8 steps, duration 3.12s |
 | **RAW Invariant** | **PASS** | Byte-for-byte identity | `user_prompt == inference_prompt` |
 | **Live Progress** | **PASS** | Monotonic real-time updates | 0.0 -> 1.0 streaming via worker queue |
-| **Postprocessing** | **PASS** | `outputs/20260828_163530_42_enhanced.mp4` | 1024x576 (2x) @ 24fps (76 frames), duration 3.17s |
+| **Effective Seed Persistence** | **PASS** | Persisted in `jobs.seed` | Seed -1 resolves to positive effective seed, displayed in UI, reused by Retry |
+| **Postprocessing** | **PASS** | `outputs/20260828_165127_1253183240_enhanced.mp4` | 1024x576 (2x) @ 24fps (76 frames), duration 3.17s |
 | **Upscale Engine** | **PASS** | `realesrgan-ncnn-vulkan` | `realesr-animevideov3-x2` (PSNR 32.97 dB, fallback: False) |
 | **Interpolation** | **PASS** | `rife-ncnn-vulkan` | `rife-v4.6` (8fps -> 24fps, duration 3.31s) |
 | **Postprocess Timing** | **PASS** | **6.61s** total | Extraction: 0.09s, Upscale: 2.72s, Interpolate: 3.31s, Encode: 0.41s |
-| **SQLite History** | **PASS** | `outputs/locali2v_history.db` | Job states (QUEUED/RUNNING/DONE), persistent across reload |
-| **Retry & Duplicate** | **PASS** | New distinct job ID | Exact settings reuse without mutating prior records |
+| **SQLite History** | **PASS** | `outputs/locali2v_history.db` | Job states (QUEUED/RUNNING/DONE), persistent across cold reload |
+| **Retry & Duplicate** | **PASS** | New distinct job ID | Exact settings & seed reuse without mutating prior records |
 | **Error Handling** | **PASS** | Human-readable errors | Corrupted image & ComfyUI offline handled cleanly |
-| **Privacy / Local-Only**| **PASS** | Strictly `127.0.0.1` | Zero external network calls required during generation |
-| **Peak VRAM / RAM** | **PASS** | VRAM: ~3.8GB / 8GB, RAM: ~7.2GB | Zero OOM on GTX 1070 |
-| **Full Automated Tests**| **PASS** | **26 / 26 PASS** | All unit, control, postprocess, and history tests pass |
+| **Privacy / Local-Only**| **PASS** | `observed_non_loopback = []` | Active process socket monitor verified zero external connections during generation |
+| **Peak VRAM / RAM** | **PASS** | VRAM: 7.84 GB / 8.00 GB, RAM: 14.08 GB | Zero OOM on GTX 1070 |
+| **Full Automated Tests**| **PASS** | **35 / 35 PASS** | Complete repository test matrix passing in 286s |
 
 ### Release Gate M3 Decision Requested
-- Release candidate is fully verified and packaged.
-- Documentation created at `docs/RELEASE_V0.1.md`.
+- Release candidate is fully verified, hardened, and packaged.
+- Documentation updated at `docs/RELEASE_V0.1.md`.
 - Standing by for Owner / ChatGPT Gate M3 final release audit.

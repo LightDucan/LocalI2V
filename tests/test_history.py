@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 from pathlib import Path
@@ -141,3 +141,47 @@ def test_latest_10_ordering(tmp_path: Path):
     # Newest should be first
     assert latest[0]["job_id"] == "job-014"
     assert latest[9]["job_id"] == "job-005"
+
+
+def test_effective_seed_persistence_and_reuse(tmp_path: Path):
+    db = HistoryDatabase(tmp_path / "test_seed.db")
+    from app.ui.main_ui import on_reuse_seed, on_duplicate_settings
+
+    # Initial job created with seed = -1
+    job = db.create_job(
+        job_id="job-seed-test",
+        source_image="img.png",
+        user_prompt="Character breathing",
+        seed=-1,
+        mode="raw",
+    )
+    assert job["seed"] == -1
+
+    # Pipeline completes with effective random seed 987654321
+    known_effective_seed = 987654321
+    db.update_job_status(
+        job_id="job-seed-test",
+        status="DONE",
+        raw_output="outputs/seed_test.mp4",
+        effective_seed=known_effective_seed,
+    )
+
+    # Verify database column was updated
+    updated_job = db.get_job("job-seed-test")
+    assert updated_job["seed"] == known_effective_seed
+
+    # Verify UI on_reuse_seed returns exact effective seed
+    # Set global db reference temporarily for UI helper
+    import app.ui.main_ui as ui_mod
+    orig_ui_db = ui_mod.db
+    try:
+        ui_mod.db = db
+        reuse_res = on_reuse_seed("job-seed-test")
+        assert reuse_res["value"] == known_effective_seed
+
+        # Verify on_duplicate_settings restores exact seed
+        dup_res = on_duplicate_settings("job-seed-test")
+        # seed is at index 2
+        assert dup_res[2]["value"] == known_effective_seed
+    finally:
+        ui_mod.db = orig_ui_db

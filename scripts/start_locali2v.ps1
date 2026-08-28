@@ -11,7 +11,7 @@ $ROOT = Split-Path -Parent $PSScriptRoot
 Set-Location $ROOT
 
 Write-Host "==================================================" -ForegroundColor Cyan
-Write-Host "🎬 LocalI2V V0.1 — Image to Video Startup" -ForegroundColor Cyan
+Write-Host "LocalI2V V0.1 - Image to Video Startup" -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
 # 1. Check Virtual Environment
@@ -44,7 +44,7 @@ $comfyProc = $null
 if (-not $comfyReady) {
     Write-Host "  -> Starting local ComfyUI backend..." -ForegroundColor Yellow
     $comfyScript = Join-Path $ROOT "comfyui\main.py"
-    $comfyProc = Start-Process -FilePath $PYTHON -ArgumentList "$comfyScript --listen 127.0.0.1 --port 8188 --lowvram --fp8_e4m3fn-text-enc --fast" -PassThru -NoNewWindow
+    $comfyProc = Start-Process -FilePath $PYTHON -ArgumentList "$comfyScript --listen 127.0.0.1 --port 8188 --disable-xformers --use-split-cross-attention --lowvram" -PassThru -NoNewWindow
 
     # Poll until ready
     $retries = 30
@@ -77,7 +77,7 @@ try {
     $env:GRADIO_ANALYTICS_ENABLED = "False"
     & $PYTHON app/ui/main_ui.py
 } finally {
-    Write-Host "`nStopping LocalI2V..." -ForegroundColor Yellow
+    Write-Host "Stopping LocalI2V..." -ForegroundColor Yellow
     if ($comfyProc -and -not $comfyProc.HasExited) {
         Write-Host "Terminating background ComfyUI process..." -ForegroundColor Yellow
         Stop-Process -Id $comfyProc.Id -Force -ErrorAction SilentlyContinue

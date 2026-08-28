@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import datetime
 import json
@@ -97,6 +97,7 @@ class HistoryDatabase:
         raw_output: str | None = None,
         enhanced_output: str | None = None,
         inference_prompt: str | None = None,
+        effective_seed: int | None = None,
         error_message: str | None = None,
         settings_update: dict[str, Any] | None = None,
     ):
@@ -124,6 +125,9 @@ class HistoryDatabase:
             if inference_prompt is not None:
                 query += ", inference_prompt = ?"
                 params.append(inference_prompt)
+            if effective_seed is not None:
+                query += ", seed = ?"
+                params.append(int(effective_seed))
             if error_message is not None:
                 query += ", error_message = ?"
                 params.append(error_message)

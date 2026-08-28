@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -161,12 +161,13 @@ class JobManager:
                 inference_prompt = gen_res.metadata.get("inference_prompt", prompt)
                 effective_seed = gen_res.metadata.get("seed", seed)
 
-                # Update DB with raw output and actual inference prompt
+                # Update DB with raw output and actual inference prompt & effective seed
                 self.db.update_job_status(
                     job_id=job_id,
                     status="RUNNING",
                     raw_output=raw_video_path,
                     inference_prompt=inference_prompt,
+                    effective_seed=effective_seed,
                     settings_update={"effective_seed": effective_seed},
                 )
 
@@ -261,13 +262,15 @@ class JobManager:
                         self._status_text = f"Complete! Video: {Path(chosen_video).name}"
                         self._progress = 1.0
 
-                        # Persist successful completion in SQLite
+                        # Persist successful completion and effective seed in SQLite
+                        eff_seed = final_gen_res.metadata.get("seed")
                         self.db.update_job_status(
                             job_id=job_id,
                             status="DONE",
                             raw_output=final_gen_res.video_path,
                             enhanced_output=final_enhanced_path,
                             inference_prompt=final_gen_res.metadata.get("inference_prompt"),
+                            effective_seed=eff_seed,
                             settings_update={"postprocess": final_post_details} if final_post_details else None,
                         )
                         yield 1.0, self._status_text, chosen_video, None
