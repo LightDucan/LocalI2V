@@ -24,5 +24,7 @@ comfyui/models/
 *.pth
 *.pt
 *.onnx
+tools/*
+!tools/.gitkeep
 .DS_Store
 Thumbs.db
