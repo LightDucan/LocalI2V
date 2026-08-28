@@ -1,6 +1,10 @@
 ﻿from __future__ import annotations
 
-DEFAULT_NEGATIVE_PROMPT = "low quality, worst quality, deformed, distorted, blurry, jerky motion"
+# Hardened negative prompt suppressing text, watermarks, stickers, overlays, and broken frame artifacts
+DEFAULT_NEGATIVE_PROMPT = (
+    "watermark, text, logo, subtitles, sticker, overlay, split screen, border, "
+    "collage, frame glitch, artifacts, banner, low quality, worst quality, deformed, distorted, blurry, jerky motion"
+)
 
 CAMERA_PROMPT_MODIFIERS = {
     "static": ", static camera, locked camera angle",

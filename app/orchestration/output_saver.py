@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import datetime
 import json
 import logging
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -15,10 +16,13 @@ def assemble_video(
     output_dir: str | Path,
     seed: int,
     fps: float = 8.0,
-) -> Path:
+) -> tuple[Path, dict[str, str]]:
     """
     Assembles generated image frames into an MP4 video in the outputs directory
-    with naming pattern: outputs/YYYYMMDD_HHMMSS_{seed}.mp4
+    with naming pattern: outputs/YYYYMMDD_HHMMSS_{seed}.mp4.
+    Also extracts and saves first, middle, and last preview frames.
+
+    Returns: (mp4_path, preview_frames_dict)
     """
     comfy_out = Path(comfy_output_dir)
     out_dir = Path(output_dir)
@@ -30,6 +34,29 @@ def assemble_video(
     sorted_frames = sorted(frame_files)
     if not sorted_frames:
         raise ValueError("No frame files provided to assemble_video")
+
+    # Save preview frames (first, middle, last)
+    previews = {}
+    try:
+        first_frame = comfy_out / sorted_frames[0]
+        mid_frame = comfy_out / sorted_frames[len(sorted_frames) // 2]
+        last_frame = comfy_out / sorted_frames[-1]
+
+        first_dest = out_dir / f"{timestamp}_{seed}_preview_first.png"
+        mid_dest = out_dir / f"{timestamp}_{seed}_preview_mid.png"
+        last_dest = out_dir / f"{timestamp}_{seed}_preview_last.png"
+
+        if first_frame.exists():
+            shutil.copy2(first_frame, first_dest)
+            previews["preview_first"] = str(first_dest)
+        if mid_frame.exists():
+            shutil.copy2(mid_frame, mid_dest)
+            previews["preview_mid"] = str(mid_dest)
+        if last_frame.exists():
+            shutil.copy2(last_frame, last_dest)
+            previews["preview_last"] = str(last_dest)
+    except Exception as exc:
+        logger.warning("Failed to save preview frames: %s", exc)
 
     temp_list_path = out_dir / f".temp_concat_{timestamp}_{seed}.txt"
     try:
@@ -55,7 +82,7 @@ def assemble_video(
             raise RuntimeError(f"FFmpeg video assembly failed: {res.stderr}")
 
         logger.info("Successfully encoded video to %s", mp4_path)
-        return mp4_path
+        return mp4_path, previews
 
     finally:
         if temp_list_path.exists():

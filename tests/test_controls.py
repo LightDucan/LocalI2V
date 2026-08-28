@@ -15,22 +15,24 @@ def test_semantic_to_model_adapter_mapping():
 
     # 1. Test Preserve Low vs High
     wf_low = LTXVModelAdapter.apply_controls(base_wf, preserve="low", motion="normal")
-    assert wf_low["7"]["inputs"]["strength"] == 0.90
-    assert wf_low["8"]["inputs"]["cfg"] == 2.5
+    assert wf_low["7"]["inputs"]["strength"] == 0.72
+    assert wf_low["8"]["inputs"]["cfg"] == 3.2
 
     wf_high = LTXVModelAdapter.apply_controls(base_wf, preserve="high", motion="normal")
-    assert wf_high["7"]["inputs"]["strength"] == 1.0
-    assert wf_high["8"]["inputs"]["denoise"] == 0.92
-    assert wf_high["8"]["inputs"]["cfg"] == 3.5
+    assert wf_high["7"]["inputs"]["strength"] == 0.92
+    assert wf_high["8"]["inputs"]["denoise"] == 0.95
+    assert wf_high["8"]["inputs"]["cfg"] == 3.4
 
     # 2. Test Motion Subtle vs Strong
     wf_subtle = LTXVModelAdapter.apply_controls(base_wf, preserve="normal", motion="subtle")
-    assert wf_subtle["5"]["inputs"]["frame_rate"] == 12.0
-    assert wf_subtle["8"]["inputs"]["cfg"] == 2.5
+    assert wf_subtle["5"]["inputs"]["frame_rate"] == 10.0
+    assert wf_subtle["7"]["inputs"]["strength"] == 0.88
+    assert wf_subtle["8"]["inputs"]["cfg"] == 2.8
 
     wf_strong = LTXVModelAdapter.apply_controls(base_wf, preserve="normal", motion="strong")
     assert wf_strong["5"]["inputs"]["frame_rate"] == 6.0
-    assert wf_strong["8"]["inputs"]["cfg"] == 3.5
+    assert wf_strong["7"]["inputs"]["strength"] == 0.74
+    assert wf_strong["8"]["inputs"]["cfg"] == 3.4
 
 
 def test_raw_prompt_bypass_invariant():

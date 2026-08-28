@@ -83,12 +83,13 @@ class I2VPipeline:
         motion: str = "normal",
         camera_preset: str = "static",
         subject_mode: str = "single",
+        crop_fill: bool = False,
         timeout_sec: float = DEFAULT_TIMEOUT_SECONDS,
         progress_callback: Callable[[float, str], None] | None = None,
         cancel_check: Callable[[], bool] | None = None,
     ) -> GenerationResult:
         """
-        Executes the full local Image-to-Video generation pipeline with semantic controls.
+        Executes the full local Image-to-Video generation pipeline with framing preservation and semantic controls.
         """
         start_time = time.perf_counter()
         if seed is None or seed < 0:
@@ -108,12 +109,19 @@ class I2VPipeline:
             # 1. Health check
             self.client.check_health()
 
-            emit_progress(0.05, "Validating source image...")
+            emit_progress(0.05, "Validating and preprocessing source image...")
 
-            # 2. Image validation and staging
-            image_filename, orig_w, orig_h = validate_and_prepare_image(
+            timestamp_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+            preprocessed_out_path = self.output_dir / f"{timestamp_str}_{seed}_preprocessed_input.png"
+
+            # 2. Image validation and staging with CONTAIN+PAD / CROP_FILL
+            image_filename, orig_w, orig_h, preprocess_mode = validate_and_prepare_image(
                 image_source=image_path,
                 comfy_input_dir=self.comfy_input_dir,
+                target_width=width,
+                target_height=height,
+                crop_fill=crop_fill,
+                save_preprocessed_path=preprocessed_out_path,
             )
 
             # 3. Prompt handling (RAW mode invariant strictly preserved)
@@ -129,7 +137,7 @@ class I2VPipeline:
 
             # 4. Construct API workflow payload via LTXVModelAdapter
             raw_wf = self.load_workflow_template()
-            prefix = f"locali2v_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}_{seed}"
+            prefix = f"locali2v_{timestamp_str}_{seed}"
 
             # Apply semantic controls via model adapter (modulates steps, cfg, strength, frame_rate)
             wf = LTXVModelAdapter.apply_controls(
@@ -154,7 +162,7 @@ class I2VPipeline:
 
             client_id = str(uuid.uuid4())
             prompt_id = self.client.queue_prompt(workflow=wf, client_id=client_id)
-            logger.info("Queued prompt %s (seed=%d, frames=%d, mode=%s, preserve=%s, motion=%s)", prompt_id, seed, length, mode, preserve, motion)
+            logger.info("Queued prompt %s (seed=%d, frames=%d, mode=%s, preserve=%s, motion=%s, framing=%s)", prompt_id, seed, length, mode, preserve, motion, preprocess_mode)
 
             # 5. Wait for execution (progress 0.10 -> 0.90)
             frame_files = self.client.wait_for_completion(
@@ -167,8 +175,8 @@ class I2VPipeline:
 
             emit_progress(0.92, "Assembling MP4 video with FFmpeg...")
 
-            # 6. Assemble MP4 and write metadata
-            video_path = assemble_video(
+            # 6. Assemble MP4, extract preview frames, and write metadata
+            video_path, preview_frames = assemble_video(
                 frame_files=frame_files,
                 comfy_output_dir=self.comfy_output_dir,
                 output_dir=self.output_dir,
@@ -184,6 +192,11 @@ class I2VPipeline:
                 "checkpoint_sha256": "94891bd4bd08de30d484befbfc54fdcffe6d1596a131baad700b9baa5e1de86b",
                 "text_encoder": "t5xxl_fp8_e4m3fn.safetensors",
                 "source_image": Path(image_path).name,
+                "preprocess_mode": preprocess_mode,
+                "original_input_size": f"{orig_w}x{orig_h}",
+                "inference_input_size": f"{width}x{height}",
+                "preprocessed_image": preprocessed_out_path.name if preprocessed_out_path.exists() else None,
+                "preview_frames": preview_frames,
                 "user_prompt": prompt,
                 "inference_prompt": inference_prompt,
                 "negative_prompt": eff_negative,
@@ -201,6 +214,7 @@ class I2VPipeline:
                 "duration_seconds": round(length / fps, 2),
                 "steps": wf["8"]["inputs"].get("steps", 8),
                 "cfg": wf["8"]["inputs"].get("cfg", 3.0),
+                "strength": wf["7"]["inputs"].get("strength", 0.82),
                 "output_video": video_path.name,
                 "generation_time_seconds": gen_duration,
                 "created_at": datetime.datetime.now().isoformat(),

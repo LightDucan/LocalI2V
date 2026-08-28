@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import logging
@@ -65,6 +65,7 @@ class JobManager:
         motion: str = "normal",
         camera_preset: str = "static",
         subject_mode: str = "single",
+        crop_fill: bool = False,
         enhance_enabled: bool = True,
     ) -> Generator[tuple[float, str, str | None, str | None], None, None]:
         """
@@ -96,6 +97,7 @@ class JobManager:
             "fps": fps,
             "steps": steps,
             "cfg": cfg,
+            "crop_fill": crop_fill,
             "enhance_enabled": enhance_enabled,
         }
         self.db.create_job(
@@ -149,6 +151,7 @@ class JobManager:
                     motion=motion,
                     camera_preset=camera_preset,
                     subject_mode=subject_mode,
+                    crop_fill=crop_fill,
                     progress_callback=scaled_progress,
                     cancel_check=check_cancel,
                 )
@@ -161,14 +164,14 @@ class JobManager:
                 inference_prompt = gen_res.metadata.get("inference_prompt", prompt)
                 effective_seed = gen_res.metadata.get("seed", seed)
 
-                # Update DB with raw output and actual inference prompt & effective seed
+                # Update DB with raw output, actual inference prompt, and effective seed
                 self.db.update_job_status(
                     job_id=job_id,
                     status="RUNNING",
                     raw_output=raw_video_path,
                     inference_prompt=inference_prompt,
                     effective_seed=effective_seed,
-                    settings_update={"effective_seed": effective_seed},
+                    settings_update={"effective_seed": effective_seed, "preprocess_mode": gen_res.metadata.get("preprocess_mode")},
                 )
 
                 # 2. Integrated Post-Processing Enhancement (0.70 -> 1.0)

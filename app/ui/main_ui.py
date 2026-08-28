@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import os
 import subprocess
@@ -66,6 +66,7 @@ def on_generate(
     motion,
     camera_preset,
     subject_mode,
+    crop_fill,
     enhance_enabled,
     progress=gr.Progress(track_tqdm=False),
 ):
@@ -93,6 +94,7 @@ def on_generate(
         motion=motion.lower(),
         camera_preset=camera_preset.lower(),
         subject_mode=subject_mode.lower(),
+        crop_fill=bool(crop_fill),
         enhance_enabled=bool(enhance_enabled),
     ):
         progress(pct, desc=status_text)
@@ -141,10 +143,10 @@ def on_play_history(job_id: str):
 
 def on_duplicate_settings(job_id: str):
     if not job_id:
-        return [gr.update()] * 8
+        return [gr.update()] * 9
     job = db.get_job(job_id)
     if not job:
-        return [gr.update()] * 8
+        return [gr.update()] * 9
 
     img = job.get("source_image") if job.get("source_image") and Path(job.get("source_image")).exists() else None
     prompt = job.get("user_prompt", "")
@@ -154,6 +156,14 @@ def on_duplicate_settings(job_id: str):
     motion = job.get("motion") or "normal"
     cam = job.get("camera_preset") or "static"
     subj = job.get("subject_mode") or "single"
+    crop = False
+    if job.get("settings_json"):
+        import json
+        try:
+            sj = json.loads(job["settings_json"])
+            crop = bool(sj.get("crop_fill", False))
+        except Exception:
+            pass
 
     return [
         gr.update(value=img),
@@ -164,6 +174,7 @@ def on_duplicate_settings(job_id: str):
         gr.update(value=motion),
         gr.update(value=cam),
         gr.update(value=subj),
+        gr.update(value=crop),
     ]
 
 
@@ -195,9 +206,17 @@ def on_retry_job(job_id: str):
     motion = job.get("motion") or "normal"
     cam = job.get("camera_preset") or "static"
     subj = job.get("subject_mode") or "single"
+    crop = False
+    if job.get("settings_json"):
+        import json
+        try:
+            sj = json.loads(job["settings_json"])
+            crop = bool(sj.get("crop_fill", False))
+        except Exception:
+            pass
     enhance = bool(job.get("enhance_enabled", 1))
 
-    for out in on_generate(img, prompt, seed, mode, preserve, motion, cam, subj, enhance):
+    for out in on_generate(img, prompt, seed, mode, preserve, motion, cam, subj, crop, enhance):
         yield out[0], out[1], out[4], out[5]
 
 
@@ -211,6 +230,11 @@ def build_ui() -> gr.Blocks:
         with gr.Row():
             with gr.Column(scale=1):
                 image_input = gr.Image(label="Source Image (PNG, JPG, WEBP)", type="filepath")
+                crop_fill_checkbox = gr.Checkbox(
+                    label="Fill frame (crop)",
+                    value=False,
+                    info="OFF (default) preserves full composition with letterboxing. ON crops to fill 16:9.",
+                )
                 prompt_input = gr.Textbox(
                     label="Motion Prompt",
                     placeholder="Describe character motion (e.g. Character turns head slowly. Camera static.)",
@@ -312,6 +336,7 @@ def build_ui() -> gr.Blocks:
                 motion_input,
                 camera_input,
                 subject_input,
+                crop_fill_checkbox,
                 enhance_checkbox,
             ],
             outputs=[video_output, status_box, generate_btn, cancel_btn, history_table, job_selector],
@@ -349,6 +374,7 @@ def build_ui() -> gr.Blocks:
                 motion_input,
                 camera_input,
                 subject_input,
+                crop_fill_checkbox,
             ],
         )
 

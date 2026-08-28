@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -189,7 +189,11 @@ def test_rc_end_to_end_generation_enhancement_and_privacy(synthetic_portrait_fix
     assert job["raw_output"] is not None
     assert job["enhanced_output"] == final_video
 
-    # 5. Assertion: Privacy check - zero non-loopback outbound connections
+    # 5. Assertion: Framing and preview artifacts
+    sj = json.loads(job["settings_json"]) if job.get("settings_json") else {}
+    assert sj.get("preprocess_mode") == "contain_pad"
+
+    # 6. Assertion: Privacy check - zero non-loopback outbound connections
     assert observed_non_loopback_connections == [], f"Outbound connections detected during generation: {observed_non_loopback_connections}"
 
     print(f"\n[RC METRICS]")
