@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -113,15 +113,17 @@ class ComfyUIClient:
 
         return success
 
-    def get_history(self, prompt_id: str) -> dict | None:
-        """Fetches execution history for a given prompt_id."""
+    def get_history(self, prompt_id: str, timeout: float = 3.0) -> dict | None:
+        """Fetches execution history for a given prompt_id. Propagates connection errors."""
         try:
             req = urllib.request.Request(f"{self.base_url}/history/{prompt_id}")
-            with urllib.request.urlopen(req, timeout=5.0) as resp:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get(prompt_id)
+        except (urllib.error.URLError, ConnectionError, OSError, TimeoutError) as exc:
+            raise ComfyUIConnectionError(f"Failed to connect to ComfyUI history endpoint: {exc}") from exc
         except Exception as exc:
-            logger.debug("Failed to get history for %s: %s", prompt_id, exc)
+            logger.debug("Failed to parse history for %s: %s", prompt_id, exc)
             return None
 
     def wait_for_completion(
@@ -179,7 +181,6 @@ class ComfyUIClient:
                 if ws_connected and ws:
                     try:
                         raw_msg = ws.recv()
-                        consecutive_poll_errors = 0
                         if isinstance(raw_msg, str):
                             msg = json.loads(raw_msg)
                             mtype = msg.get("type")
@@ -223,11 +224,11 @@ class ComfyUIClient:
                 try:
                     history = self.get_history(prompt_id)
                     consecutive_poll_errors = 0
-                except Exception as poll_err:
+                except ComfyUIConnectionError as poll_err:
                     consecutive_poll_errors += 1
-                    logger.warning("Polling failure %d/%d: %s", consecutive_poll_errors, max_poll_errors, poll_err)
+                    logger.warning("Connection failure during active polling %d/%d: %s", consecutive_poll_errors, max_poll_errors, poll_err)
                     if consecutive_poll_errors >= max_poll_errors:
-                        raise ComfyUIConnectionError("Lost connection to ComfyUI during active job (consecutive polling failures).") from poll_err
+                        raise ComfyUIConnectionError("Lost connection to ComfyUI during active job (5 consecutive polling failures).") from poll_err
                     history = None
 
                 if history:

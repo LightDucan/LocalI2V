@@ -51,9 +51,9 @@ Fresh app start:
 | Environment & GPU | `tests/test_env.py` | 3 | **3/3 PASS** | CUDA, GTX 1070 CC 6.1, UI shell |
 | RAW Prompt Invariant | `tests/test_prompt_handler.py` | 2 | **2/2 PASS** | Byte-for-byte identity & negative prompt |
 | Image Handler Validation | `tests/test_image_handler.py` | 4 | **4/4 PASS** | PNG/JPG/WEBP validation & corrupted input rejection |
-| ComfyUI Offline Error | `tests/test_comfyui_offline.py` | 1 | **1/1 PASS** | Immediate human-readable `ComfyUIConnectionError` |
+| ComfyUI Offline Error | `tests/test_comfyui_offline.py` | 3 | **3/3 PASS** | Immediate health offline error, history offline error, fail-fast (5 poll errors) |
 | End-to-End Pipeline & Streaming | `tests/e2e/test_pipeline_e2e.py` | 4 | **4/4 PASS** | E2E generation, real progress, real cancel, invalid image |
-| **Total Test Suite** | | **14** | **14/14 PASS** | **100% Passing** |
+| **Total Test Suite** | | **16** | **16/16 PASS** | **100% Passing** |
 
 ### Verified Runtime Metrics & Fix Verification
 1. **Real-time Progress Streaming**: Verified via `test_e2e_realtime_progress_streaming`. Captured **25 live monotonic progress updates** emitted across setup, model initialization, 8 diffusion sampling steps, VAE decoding, FFmpeg video assembly, and sidecar metadata saving (progress strictly bounded, monotonic, and reaching 1.0 only after file persistence).
@@ -72,6 +72,6 @@ Fresh app start:
 - [x] RAW unit test proves byte-for-byte prompt identity.
 - [x] Runtime restricted strictly to `127.0.0.1` (localhost).
 
-### Owner Gate M1 Decision Requested
-- All audit requirements for progress streaming, real cancellation, fail-fast offline handling, and automated test coverage have been implemented and verified (14/14 tests passing).
-- Standing by for Owner Gate M1 re-audit.
+### Owner Gate M1 Decision
+- **OWNER GATE M1: PASS** (Audited and authorized by Owner/ChatGPT).
+- Core I2V Pipeline is fully verified and locked for V0.1. Proceeding to TASK-03.
